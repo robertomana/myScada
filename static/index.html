@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+
+<head> 
+	<title>Gioco Di Luci</title>	
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="index.css" />
+	<script type="application/javascript" src="jquery.js"></script>
+	<script type="application/javascript" src="socket.io.js"></script>
+	<!--<script type="application/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.7.3/socket.io.js"></script>-->	
+	<script type="application/javascript" src="index.js"> </script>
+</head>
+
+
+<body>
+	<div id="wrapper">
+		<h2 style="text-align:center">My Personal Scada</h2>
+		<div id="comandi">
+	    	<button id="btnStop"> Stop </button>
+			<button id="btnAuto"> Automatico </button>
+			<button id="btnReset"> Reset </button>
+			<button id="btnMan"> Manuale </button>
+			<button id="btnTest"> Led Test </button>
+		</div>
+		<div id="stati">
+	    	<div> Stop <div id="sStop"> </div> </div> 
+			<div> Automatico <div id="sAuto">  </div> </div> 
+			<div> Attesa Stop  <div id="sAttesaStop">  </div> </div> 
+			<div> Manuale  <div id="sMan"> </div> </div> 
+			<div class="led"> 
+				<div id="led28"> </div> 
+				<div id="led29"> </div> 
+				<div id="led30"> </div> 
+				<div id="led31"> </div> 
+			</div> 
+			<div class="cntCicli"> 0 </div>
+		</div>
+	</div>
+	
+</body>
+</html>
