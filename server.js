@@ -1,12 +1,16 @@
 "use strict";
 
+// ref: https://github.com/node-opcua/node-opcua
+
+// https://github.com/node-opcua/node-opcua/wiki/2.0.0-breaking-changes
+
 const express = require('express');
 const app = express();
 const opcua = require("node-opcua");
 const async = require("async");
 
 const http = require('http');
-const server = http.Server(app); 
+const server = http.createServer(app); 
 const io = require('socket.io')(server)
 
 
@@ -16,7 +20,7 @@ var scada=[];     // 160 bit
 var scadaInt=[];  //   8 int
 
 /* L'applicazione legge dal PLC un vettore denominato "scada" lungo 160 bit e 
-   restituisce a client il json indicato di seguito :
+   restituisce al client il json indicato di seguito :
 
   {
 	 "ingressi":     array 32 bit  -  scada[  0- 31]
@@ -32,34 +36,20 @@ var scadaInt=[];  //   8 int
 */ 
 
 
-
  /* *********************************************************************** */
  //                              OPC UA CLIENT
  /* *********************************************************************** */
 var the_session, the_subscription;
-var endpointUrl="opc.tcp://192.168.2.100:4840";  // su wincc TIAv14 era 4870
+
+const endpointUrl="opc.tcp://localhost:4840"; 
  
-
-var securityMode = opcua.MessageSecurityMode.get("NONE");
-if (!securityMode) 
-    throw new Error("Invalid Security mode , should be " + opcua.MessageSecurityMode.enums.join(" "));
-var securityPolicy = opcua.SecurityPolicy.get("None");
-if (!securityPolicy)  
-    throw new Error("Invalid securityPolicy , should be " + opcua.SecurityPolicy.enums.join(" "));
-var options = {
-    securityMode: securityMode,
-    securityPolicy: securityPolicy,
-    defaultSecureTokenLifetime: 40000
-}
-
-//var opcClient = new opcua.OPCUAClient(options);
-  var opcClient = new opcua.OPCUAClient();
+const opcClient = opcua.OPCUAClient.create();
 
 
 async.series([
     // step 1 : connect to Server
     function(callback)  {
-        opcClient.connect(endpointUrl,function (err) {
+		opcClient.connect(endpointUrl,function (err) {
             if(err) 
                 console.log(" cannot connect to endpoint :" , endpointUrl );
 			else 
@@ -81,32 +71,11 @@ async.series([
         });
     },
 
-
-    /*	
-    // step 3 : Visualizzazioni delle variabili contenute nella root folder
-    function(callback) {
-       the_session.browse("RootFolder", function(err, results){
-	        if(err) 
-                console.log(" cannot access RootFolder" );
-            else {
-				console.log("Elenco nodi di primo livello :");
-				// Nelle precedenti versioni di opcua occorre aggiungere [0]
-				// results[0].references.forEach(function(reference) {
-                   results.references.forEach(function(reference) {
-                       console.log("\t", reference.browseName.toString());
-                   });   				   
-			    console.log("Accessi alla cartella dati OK !");
-            }
-            callback(err);
-       });
-    },
-	*/
 	
-	
-    // step 4 : Creazione di una subscription e dei relativi MonitoredItem
+    // step 3 : Creazione di una subscription e dei relativi MonitoredItem
     function(callback) {  
-        // a) Creazione della Subscription    
-        the_subscription=new opcua.ClientSubscription(the_session,{
+        // a) Creazione della Subscription  
+		the_subscription = opcua.ClientSubscription.create(the_session,{
             requestedPublishingInterval: 120,  // 1000
             requestedMaxKeepAliveCount: 20,    // 2
             requestedLifetimeCount: 100,       // 10
@@ -116,7 +85,7 @@ async.series([
             maxNotificationsPerPublish: 10    
         });
        
-	    // b) Richiamo della callback finale in corrispondenza della terminazione
+	    // b) Gestione degli eventi relativi alla subscription
         the_subscription.on("started",function(){
             // console.log("Continuous Read Started - subscriptionId=",the_subscription.subscriptionId);
             console.log("Server in attesa di richieste sulla porta 1337 ......");         
@@ -132,33 +101,34 @@ async.series([
             // the_subscription.terminate();
         },30000);   
 	   
-        // *****************************************************************	   
 	   
+        // *****************************************************************	   
+	    // step 4: Lettura dei valori
+		
         var serverParameters = {
 		    samplingInterval: 100,  
             queueSize: 4,
             discardOldest: true
 		};
-			
-		var monitorScada  = the_subscription.monitor(
+						
+		var monitorScada  = opcua.ClientMonitoredItem.create(the_subscription,
 	        {
 			   nodeId: opcua.resolveNodeId('ns=3;s="DB_scada"."scada"'),
 			   attributeId: opcua.AttributeIds.Value
             },
             serverParameters, 
-            opcua.read_service.TimestampsToReturn.Both
-        ); 
-		
-	    var monitorScadaInt  = the_subscription.monitor(
+			opcua.TimestampsToReturn.Both    // in caso di problemi commentare
+        ); 		
+						
+	    var monitorScadaInt  = opcua.ClientMonitoredItem.create(the_subscription,
 	        {
 			   nodeId: opcua.resolveNodeId('ns=3;s="DB_scadaInt"."scadaInt"'),
 			   attributeId: opcua.AttributeIds.Value
             },
-			serverParameters, 
-            opcua.read_service.TimestampsToReturn.Both
-        ); 				
-		
-	    // Lettura dei valori
+            serverParameters, 
+			opcua.TimestampsToReturn.Both    // in caso di problemi commentare
+        );
+	    
         monitorScada.on("changed",function(dataValue){
 	        scada = dataValue.value.value;
 			invia();
@@ -170,7 +140,7 @@ async.series([
     },	
 
 
-	// step 5 : Eventuale Chiusura della Sessione (a seguito di terminate esplicito)
+	// step 5 : Eventuale Chiusura della Sessione (a seguito di terminate esplicito). Se non si esegue terminazione esplcita a questa riga non si arriva mai
     function(callback) {
 	    // dopo la chiusura della subscription si chiude la sessione
         the_session.close(function(err){
