@@ -53,7 +53,7 @@ async.series([
             if(err) 
                 console.log(" cannot connect to endpoint :" , endpointUrl );
 			else 
-                console.log("Connection to OPC Server OK !");
+                console.log("Connection to OPC Server OK !!!");
             callback(err);
         });
     },
